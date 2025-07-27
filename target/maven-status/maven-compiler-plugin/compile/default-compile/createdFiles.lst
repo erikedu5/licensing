@@ -1,0 +1,5 @@
+com/pixka/asociaciones/licensing/LicensePayload.class
+com/pixka/asociaciones/licensing/LicensingShellApplication.class
+com/pixka/asociaciones/licensing/HardwareUtils.class
+com/pixka/asociaciones/licensing/LicenseCommands.class
+com/pixka/asociaciones/licensing/LicenseService.class
