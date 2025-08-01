@@ -1,28 +1,35 @@
 package com.pixka.asociaciones.licensing;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.InetAddress;
+import java.io.IOException;
 import java.net.NetworkInterface;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.util.Collections;
 
 public class HardwareUtils {
+
+    private static final Path STORAGE_PATH = Paths.get(System.getProperty("user.home"), ".bitacora-fingerprint");
+
     public static String fingerprint() {
         try {
-            String hostname = InetAddress.getLocalHost().getHostName();
-            String mac = getFirstMac();
-            String diskSerial = getDiskSerial();
+            if (Files.exists(STORAGE_PATH)) {
+                return Files.readAllLines(STORAGE_PATH).get(0).trim();
+            }
 
-            String combined = hostname + "-" + mac + "-" + diskSerial;
-            return sha256(combined);
+            String mac = getFirstMacAddress();
+            String hwid = sha256(mac);
+            Files.write(STORAGE_PATH, hwid.getBytes(StandardCharsets.UTF_8));
+            return hwid;
+
         } catch (Exception e) {
-            throw new RuntimeException("HWID generation error", e);
+            throw new RuntimeException("Error generando HWID", e);
         }
     }
 
-    private static String getFirstMac() throws Exception {
+    private static String getFirstMacAddress() throws Exception {
         for (NetworkInterface ni : Collections.list(NetworkInterface.getNetworkInterfaces())) {
             if (ni.isLoopback() || ni.isVirtual() || !ni.isUp()) continue;
             byte[] mac = ni.getHardwareAddress();
@@ -34,35 +41,7 @@ public class HardwareUtils {
                 return sb.toString();
             }
         }
-        return "UNKNOWN_MAC";
-    }
-
-    private static String getDiskSerial() {
-        String os = System.getProperty("os.name").toLowerCase();
-        try {
-            if (os.contains("win")) {
-                Process process = Runtime.getRuntime().exec(new String[]{"wmic", "diskdrive", "get", "SerialNumber"});
-                return readFirstOutputLine(process);
-            } else if (os.contains("linux")) {
-                Process process = Runtime.getRuntime().exec(new String[]{"bash", "-c", "udevadm info --query=all --name=/dev/sda | grep ID_SERIAL_SHORT"});
-                return readFirstOutputLine(process);
-            }
-        } catch (Exception ignored) {
-        }
-        return "UNKNOWN_DISK";
-    }
-
-    private static String readFirstOutputLine(Process process) throws Exception {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                line = line.trim();
-                if (!line.isEmpty() && !line.toLowerCase().contains("serial")) {
-                    return line.replaceAll("\\s+", "");
-                }
-            }
-        }
-        return "UNKNOWN";
+        throw new IOException("No se encontró una dirección MAC válida.");
     }
 
     private static String sha256(String input) throws Exception {
@@ -74,5 +53,4 @@ public class HardwareUtils {
         }
         return hex.toString();
     }
-
 }
